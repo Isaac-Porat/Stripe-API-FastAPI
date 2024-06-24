@@ -38,7 +38,7 @@ class PaymentIntent(BaseModel):
 @app.post("/create-payment-intent")
 async def create_payment_intent(payment_intent: PaymentIntent):
 
-    amount = int(payment_intent.amount)
+    amount = int(float(payment_intent.amount) * 100)  # converting dollar amount into cents amount
 
     try:
         intent = stripe.PaymentIntent.create(
@@ -46,8 +46,11 @@ async def create_payment_intent(payment_intent: PaymentIntent):
             currency=payment_intent.currency
         )
 
+        logger.warning(intent.client_secret)
+
         return {"clientSecret": intent.client_secret}
     except Exception as e:
+        logger.warning(str(e))
         raise HTTPException(status_code=400, detail=str(e))
 
 if __name__ == "__main__":
