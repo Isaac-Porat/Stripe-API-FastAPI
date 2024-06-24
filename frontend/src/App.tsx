@@ -1,9 +1,11 @@
 import React, { useState, FormEvent } from 'react';
-import { loadStripe, Stripe } from '@stripe/stripe-js';
+import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import './App.css';
 
-const stripePromise = loadStripe('pk_test_51OFMUuKrQQFwO9FlUeGpw74QBeOCJlFxuLQ7GfsC12DvfJ2e4hPBxTY2eivXZOW9ipQQgBLi0zjVhsO1As9jhNVB008sfwM0Mg');
+console.log(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
+
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
 interface UserInfo {
   name: string;
@@ -66,6 +68,13 @@ const PaymentForm: React.FC = () => {
     });
 
     const { clientSecret }: { clientSecret: string } = await response.json();
+
+    if (!clientSecret) {
+      console.error("No client secret returned")
+      setError("No client secret returned")
+      setProcessing(false);
+      return;
+    }
 
     const result = await stripe.confirmCardPayment(clientSecret, {
       payment_method: {
