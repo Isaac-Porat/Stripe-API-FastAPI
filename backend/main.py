@@ -1,32 +1,54 @@
 import os
+import logging
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
+from pydantic import BaseModel
 import stripe
 from dotenv import load_dotenv
-import uvicorn
+
+logger = logging.getLogger("uvicorn")
 
 load_dotenv()
 
-STRIPE_API_KEY = os.getenv("STRIPE_API_KEY")
+stripe.api_key = os.getenv("STRIPE_API_KEY")
+
+logger.warning(stripe.api_key)
 
 app = FastAPI()
 
-@app.post("/process-payment")
-async def process_payment(amount: int, currency: str, token: str):
-  try:
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+class UserInfo(BaseModel):
+    name: str
+    address: str
+    city: str
+    state: str
+    zip: str
+class PaymentIntent(BaseModel):
+  amount: str
+  currency: str
+  userInfo: UserInfo
 
-    intent = stripe.PaymentIntent.create(
-      amount=amount,
-      currency=currency,
-      automatic_payment_methods={
-          'enabled': True,
-    })
+@app.post("/create-payment-intent")
+async def create_payment_intent(payment_intent: PaymentIntent):
 
-    return {"status": "success", "charge_id": intent.id}
+    amount = int(payment_intent.amount)
 
-  except stripe.CardError as e:
-    return {"status": "error", "message": str(e)}
-  except stripe.StripeError as e:
-    return {"status": "error", "message": "Something went wrong. Please try again later."}
+    try:
+        intent = stripe.PaymentIntent.create(
+            amount=amount,
+            currency=payment_intent.currency
+        )
+
+        return {"clientSecret": intent.client_secret}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 if __name__ == "__main__":
   uvicorn.run(app, host="0.0.0.0", port=8000)
